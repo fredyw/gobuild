@@ -7,7 +7,7 @@ A small Python script to build a Go program.
 
 ### Software Requirements
 1. Python 2.7+
-2. Go Lint
+2. Go Lint (`go get -u github.com/golang/lint/golint`)
 
 ### Usage:
     usage: gobuild.py [-h] [--clean] [--package] [--test]
