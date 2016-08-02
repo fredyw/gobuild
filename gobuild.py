@@ -100,21 +100,21 @@ def error_and_exit(msg):
     sys.exit(1)
 
 def build_packages(args):
+    if 'GOPATH' in env_vars:
+        env_vars['GOPATH'] = os.getcwd() + os.pathsep + env_vars['GOPATH']
+    else:
+        env_vars['GOPATH'] = os.getcwd()
     for package in all_packages:
         # only do gofmt, golint, and govet on source packages
         if package in source_packages:
-            gofmt(package)
+            gofmt(package, env_vars)
             if not args.no_golint:
-                golint(package)
+                golint(package, env_vars)
             if not args.no_govet:
-                govet(package)
+                govet(package, env_vars)
         cmd = ['go', 'install', package]
         cmd_str = ' '.join(cmd)
         env_vars = os.environ.copy()
-        if 'GOPATH' in env_vars:
-            env_vars['GOPATH'] = os.getcwd() + os.pathsep + env_vars['GOPATH']
-        else:
-            env_vars['GOPATH'] = os.getcwd()
         if args.cross_compile:
             for cross_compilation in cross_compilations:
                 env_vars['GOOS'] = cross_compilation[0]
@@ -179,19 +179,19 @@ def create_package():
 def gofmt(pkg):
     cmd = ['go', 'fmt', pkg]
     cmd_str = ' '.join(cmd)
-    if subprocess.call(cmd) != 0:
+    if subprocess.call(cmd, env=env_vars) != 0:
         error_and_exit('Got a non-zero exit code while executing ' + cmd_str)
 
 def govet(pkg):
     cmd = ['go', 'vet', pkg]
     cmd_str = ' '.join(cmd)
-    if subprocess.call(cmd) != 0:
+    if subprocess.call(cmd, env=env_vars) != 0:
         error_and_exit('Got a non-zero exit code while executing ' + cmd_str)
 
 def golint(pkg):
     cmd = ['golint', pkg]
     cmd_str = ' '.join(cmd)
-    if subprocess.call(cmd) != 0:
+    if subprocess.call(cmd, env=env_vars) != 0:
         error_and_exit('Got a non-zero exit code while executing ' + cmd_str)
 
 def main(args):
