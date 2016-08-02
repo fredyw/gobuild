@@ -65,15 +65,21 @@ def parse_args():
     parser = argparse.ArgumentParser(
         formatter_class=lambda prog: argparse.HelpFormatter(prog, max_help_position=80))
     parser.add_argument('--clean', action='store_true', dest='clean',
-                        help='cleans the project')
+                        help='clean the project')
     parser.add_argument('--package', action='store_true', dest='package',
-                        help='creates a package')
+                        help='create a package')
     parser.add_argument('--test', action='store_true', dest='test',
-                       help='runs the tests')
+                       help='run the tests')
     parser.add_argument('--test-package', type=str, dest='test_package',
-                       help='runs a specific test package')
+                       help='run a specific test package')
     parser.add_argument('--test-case', type=str, dest='test_case',
-                       help='runs a specific test case')
+                       help='run a specific test case')
+    parser.add_argument('--cross-compile', action='store_true', dest='cross_compile',
+                        help='cross-compile the build')
+    parser.add_argument('--no-govet', action='store_true', dest='no_govet',
+                        help='run go vet')
+    parser.add_argument('--no-golint', action='store_true', dest='no_golint',
+                        help='run go lint')
 
     args = parser.parse_args()
     if args.test_package is not None:
@@ -86,30 +92,38 @@ def parse_args():
             error_and_exit('--test-package option is required for --test-case option')
     return args
 
-def error_and_exit(msg):
+def error(msg):
     print 'Error:', msg
+
+def error_and_exit(msg):
+    error(msg)
     sys.exit(1)
 
-def build_packages():
+def build_packages(args):
     for package in all_packages:
         # only do gofmt, golint, and govet on source packages
         if package in source_packages:
             gofmt(package)
-            golint(package)
-            govet(package)
+            if not args.no_golint:
+                golint(package)
+            if not args.no_govet:
+                govet(package)
         cmd = ['go', 'install', package]
         cmd_str = ' '.join(cmd)
         env_vars = os.environ.copy()
-        env_vars['GOPATH'] = os.getcwd()
-        if len(cross_compilation) == 0:
-            if subprocess.call(cmd, env=env_vars) != 0:
-                error_and_exit('Got a non-zero exit code while executing ' + cmd_str)
+        if 'GOPATH' in env_vars:
+            env_vars['GOPATH'] = os.getcwd() + os.pathsep + env_vars['GOPATH']
         else:
+            env_vars['GOPATH'] = os.getcwd()
+        if args.cross_compile:
             for cross_compilation in cross_compilations:
                 env_vars['GOOS'] = cross_compilation[0]
                 env_vars['GOARCH'] = cross_compilation[1]
                 if subprocess.call(cmd, env=env_vars) != 0:
                     error_and_exit('Got a non-zero exit code while executing ' + cmd_str)
+        else:
+            if subprocess.call(cmd, env=env_vars) != 0:
+                error_and_exit('Got a non-zero exit code while executing ' + cmd_str)
 
 def run_tests(args):
     if args.test_package is not None:
@@ -184,7 +198,7 @@ def main(args):
     if args.clean:
         clean()
     else:
-        build_packages()
+        build_packages(args)
         if args.test:
             run_tests(args)
         if args.package:
