@@ -43,16 +43,14 @@ test_packages = [
 
 # any target compilation, leave it empty
 cross_compilations = [
-#    ('linux', 'amd64'),
-#    ('windows', 'amd64'),
 ]
 
 # the name of the executable
-executable = 'test'
+executables = []
 # the release directory
-release_dir = 'test'
+release_dir = ''
 # the release archive file
-release_file = 'test.zip'
+release_file = ''
 
 files_to_remove = [
     'bin',
@@ -100,12 +98,13 @@ def error_and_exit(msg):
     sys.exit(1)
 
 def build_packages(args):
-    if 'GOPATH' in env_vars:
-        env_vars['GOPATH'] = os.getcwd() + os.pathsep + env_vars['GOPATH']
-    else:
-        env_vars['GOPATH'] = os.getcwd()
     for package in all_packages:
         # only do gofmt, golint, and govet on source packages
+        env_vars = os.environ.copy()
+        if 'GOPATH' in env_vars:
+            env_vars['GOPATH'] = os.getcwd() + os.pathsep + env_vars['GOPATH']
+        else:
+            env_vars['GOPATH'] = os.getcwd()
         if package in source_packages:
             gofmt(package, env_vars)
             if not args.no_golint:
@@ -114,7 +113,6 @@ def build_packages(args):
                 govet(package, env_vars)
         cmd = ['go', 'install', package]
         cmd_str = ' '.join(cmd)
-        env_vars = os.environ.copy()
         if args.cross_compile:
             for cross_compilation in cross_compilations:
                 env_vars['GOOS'] = cross_compilation[0]
@@ -164,31 +162,32 @@ def clean():
 def create_package():
     if not os.path.isdir(release_dir):
         os.makedirs(release_dir)
-    executables = []
+    execs = []
     for root, dirs, files in os.walk('bin'):
         for f in files:
-            if f.startswith(executable):
-                executables.append(os.path.join(root, f))
-    for exc in executables:
+            for executable in executables:
+                if f.startswith(executable):
+                    execs.append(os.path.join(root, f))
+    for exc in execs:
         shutil.copy2(exc, release_dir)
     with zipfile.ZipFile(release_file, 'w') as zf:
         for root, dirs, files in os.walk(release_dir):
             for f in files:
                 zf.write(os.path.join(root, f))
 
-def gofmt(pkg):
+def gofmt(pkg, env_vars):
     cmd = ['go', 'fmt', pkg]
     cmd_str = ' '.join(cmd)
     if subprocess.call(cmd, env=env_vars) != 0:
         error_and_exit('Got a non-zero exit code while executing ' + cmd_str)
 
-def govet(pkg):
+def govet(pkg, env_vars):
     cmd = ['go', 'vet', pkg]
     cmd_str = ' '.join(cmd)
     if subprocess.call(cmd, env=env_vars) != 0:
         error_and_exit('Got a non-zero exit code while executing ' + cmd_str)
 
-def golint(pkg):
+def golint(pkg, env_vars):
     cmd = ['golint', pkg]
     cmd_str = ' '.join(cmd)
     if subprocess.call(cmd, env=env_vars) != 0:
